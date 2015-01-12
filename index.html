@@ -16,7 +16,7 @@ def factorial:			; Defines a function called factorial
     factorial_fn_start:
 	pop r0-r1			; Pops 2 values from the stack into r0 and r1
 	eq r1, #0			; If r1 == #0, then the next instruction is executed.
-						; the next instruction is skipped if the condition is not true.
+                        ; the next instruction is skipped if the condition is not true.
 	mov r1, #1			; Moves the value #1 into r1
 	eq r0, #0
 	mov r0, #1
@@ -34,7 +34,11 @@ end						; The end of the factorial function.
 mov r0, #9
 push r0
 call factorial
-push #1					; Sets up our first argument for the 'dump' function.
+pop r0
+push r0
+and r0, r0, 0xffcffedd
+push r0
+push #2					; Sets up our first argument for the 'dump' function.
 call dump				; Calls the internal function 'dump' which takes two arguments.
 						; The first argument is the number of values that should be
 						; Read from the stack and dumped onto the console.

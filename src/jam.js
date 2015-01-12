@@ -16,6 +16,18 @@ var JamInstruction = {
     JMP: "jmp",
     CALL: "call",
     
+    AND: "and",
+    OR: "or",
+    XOR: "xor",
+    NOT: "not",
+    BIC: "bic",
+    
+    ASR: "asr",
+    LSR: "lsr",
+    LSL: "lsl",
+    
+    MOD: "mod",
+    
     BKPT: "bkpt"
 }
 
@@ -282,54 +294,70 @@ var JamExecutor = (function() {
     
     _.exec_instr = function(instr) {
 //        log("#%d: %s", this.context.pc, JSON.stringify(instr));
-        var handled = false;
         switch(instr.name) {
             case JamInstruction.MOV:
                 this.exec_instr_mov(instr);
-                handled = true;
                 break;
             case JamInstruction.ADD:
                 this.exec_instr_add(instr);
-                handled = true;
                 break;
             case JamInstruction.SUB:
                 this.exec_instr_sub(instr);
-                handled = true;
                 break;
             case JamInstruction.MUL:
                 this.exec_instr_mul(instr);
-                handled = true;
                 break;
             case JamInstruction.DIV:
                 this.exec_instr_div(instr);
-                handled = true;
+                break;
+            case JamInstruction.AND:
+                this.exec_instr_and(instr);
+                break;
+            case JamInstruction.OR:
+                this.exec_instr_OR(instr);
+                break;
+            case JamInstruction.XOR:
+                this.exec_instr_xor(instr);
+                break;
+            case JamInstruction.LSL:
+                this.exec_instr_lsl(instr);
+                break;
+            case JamInstruction.LSR:
+                this.exec_instr_lsr(instr);
+                break;
+            case JamInstruction.ASR:
+                this.exec_instr_asr(instr);
+                break;
+            case JamInstruction.BIC:
+                this.exec_instr_bic(instr);
+                break;
+            case JamInstruction.MOD:
+                this.exec_instr_mod(instr);
+                break;
+            case JamInstruction.NOT:
+                this.exec_instr_not(instr);
                 break;
             case JamInstruction.PUSH:
                 this.exec_instr_push(instr);
-                handled = true;
                 break;
             case JamInstruction.POP:
                 this.exec_instr_pop(instr);
-                handled = true;
                 break;
             case JamInstruction.JMP:
                 this.exec_instr_jmp(instr);
-                handled = true;
                 break;
             case JamInstruction.EQ:
                 this.exec_instr_eq(instr);
-                handled = true;
                 break;
             case JamInstruction.CALL:
                 this.exec_instr_call(instr);
-                handled = true;
                 break;
             case JamInstruction.BKPT:
                 this.exec_instr_bkpt(instr);
                 break;
-        }
-        if(!handled) {
-            log("Unhandled but valid instruction ", instr);
+            default:
+                log("Unhandled but valid instruction ", instr);
+                break;
         }
     }
     
@@ -364,39 +392,153 @@ var JamExecutor = (function() {
     
     _.exec_instr_sub = function(instr) {
         if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register, JamArg.Register)) {
-            // add <register>, <register>, <register> -- Subtracts 2 registers and puts the result in the first register.
+            // sub <register>, <register>, <register> -- Subtracts 2 registers and puts the result in the first register.
             this.context.registers[instr.args[0].value] = this.reg(instr.args[1]) - this.reg(instr.args[2]);
         } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register, JamArg.Integral)) {
-            // add <register>, <register>, <immediate> -- Subtracts an immediate value from a register and puts the result into the first register.
+            // sub <register>, <register>, <immediate> -- Subtracts an immediate value from a register and puts the result into the first register.
             this.context.registers[instr.args[0].value] = this.reg(instr.args[1]) - instr.args[2].value;
         } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Integral, JamArg.Register)) {
-            // add <register>, <immediate>, <register> -- Subtracts a register from an immediate value and puts the result into the first register.
+            // sub <register>, <immediate>, <register> -- Subtracts a register from an immediate value and puts the result into the first register.
             this.context.registers[instr.args[0].value] = instr.args[1].value - this.reg(instr.args[2]);
         }
     }
     
     _.exec_instr_mul = function(instr) {
         if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register, JamArg.Register)) {
-            // add <register>, <register>, <register> -- Multiplies 2 registers and puts the result in the first register.
+            // mul <register>, <register>, <register> -- Multiplies 2 registers and puts the result in the first register.
             this.context.registers[instr.args[0].value] = this.reg(instr.args[1]) * this.reg(instr.args[2]);
         } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register, JamArg.Integral)) {
-            // add <register>, <register>, <immediate> -- Multiplies an immediate value and a register and puts the result into the first register.
+            // mul <register>, <register>, <immediate> -- Multiplies an immediate value and a register and puts the result into the first register.
             this.context.registers[instr.args[0].value] = this.reg(instr.args[1]) * instr.args[2].value;
         } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Integral, JamArg.Register)) {
-            // add <register>, <immediate>, <register> -- Multiplies a register and an immediate value and puts the result into the first register.
+            // mul <register>, <immediate>, <register> -- Multiplies a register and an immediate value and puts the result into the first register.
             this.context.registers[instr.args[0].value] = instr.args[1].value * this.reg(instr.args[2]);
+        }
+    }
+    
+    _.exec_instr_and = function(instr) {
+        if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register, JamArg.Register)) {
+            // and <register>, <register>, <register> -- Ands 2 registers and puts the result in the first register.
+            this.context.registers[instr.args[0].value] = this.reg(instr.args[1]) & this.reg(instr.args[2]);
+        } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register, JamArg.Integral)) {
+            // and <register>, <register>, <immediate> -- Ands an immediate value and a register and puts the result into the first register.
+            this.context.registers[instr.args[0].value] = this.reg(instr.args[1]) & instr.args[2].value;
+        } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Integral, JamArg.Register)) {
+            // and <register>, <immediate>, <register> -- Ands a register and an immediate value and puts the result into the first register.
+            this.context.registers[instr.args[0].value] = instr.args[1].value & this.reg(instr.args[2]);
+        }
+    }
+    
+    _.exec_instr_or = function(instr) {
+        if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register, JamArg.Register)) {
+            // or <register>, <register>, <register> -- Ors 2 registers and puts the result in the first register.
+            this.context.registers[instr.args[0].value] = this.reg(instr.args[1]) | this.reg(instr.args[2]);
+        } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register, JamArg.Integral)) {
+            // or <register>, <register>, <immediate> -- Ors an immediate value and a register and puts the result into the first register.
+            this.context.registers[instr.args[0].value] = this.reg(instr.args[1]) | instr.args[2].value;
+        } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Integral, JamArg.Register)) {
+            // or <register>, <immediate>, <register> -- Ors a register and an immediate value and puts the result into the first register.
+            this.context.registers[instr.args[0].value] = instr.args[1].value | this.reg(instr.args[2]);
+        }
+    }
+    
+    _.exec_instr_xor = function(instr) {
+        if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register, JamArg.Register)) {
+            // xor <register>, <register>, <register> -- Xors 2 registers and puts the result in the first register.
+            this.context.registers[instr.args[0].value] = this.reg(instr.args[1]) ^ this.reg(instr.args[2]);
+        } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register, JamArg.Integral)) {
+            // xor <register>, <register>, <immediate> -- Xors an immediate value and a register and puts the result into the first register.
+            this.context.registers[instr.args[0].value] = this.reg(instr.args[1]) ^ instr.args[2].value;
+        } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Integral, JamArg.Register)) {
+            // xor <register>, <immediate>, <register> -- Xors a register and an immediate value and puts the result into the first register.
+            this.context.registers[instr.args[0].value] = instr.args[1].value ^ this.reg(instr.args[2]);
+        }
+    }
+    
+    _.exec_instr_not = function(instr) {
+        if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register)) {
+            // not <register>, <register>, <register> -- Not of a register
+            this.context.registers[instr.args[0].value] = ~this.reg(instr.args[1]);
+        } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Integral)) {
+            // not <register>, <immediate>, <register> -- Not of an immediate value
+            this.context.registers[instr.args[0].value] = ~instr.args[1].value;
+        }
+    }
+    
+    _.exec_instr_bic = function(instr) {
+        if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register, JamArg.Register)) {
+            // bic <register>, <register>, <register> -- AND NOT 2 registers and puts the result in the first register.
+            this.context.registers[instr.args[0].value] = this.reg(instr.args[1]) & ~this.reg(instr.args[2]);
+        } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register, JamArg.Integral)) {
+            // bic <register>, <register>, <immediate> -- AND NOT an immediate value and a register and puts the result into the first register.
+            this.context.registers[instr.args[0].value] = this.reg(instr.args[1]) & ~instr.args[2].value;
+        } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Integral, JamArg.Register)) {
+            // bic <register>, <immediate>, <register> -- AND NOT a register and an immediate value and puts the result into the first register.
+            this.context.registers[instr.args[0].value] = instr.args[1].value & ~this.reg(instr.args[2]);
+        }
+    }
+    
+    _.exec_instr_asr = function(instr) {
+        if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register, JamArg.Register)) {
+            // asr <register>, <register>, <register> -- Shifts register right by register
+            this.context.registers[instr.args[0].value] = this.reg(instr.args[1]) >> this.reg(instr.args[2]);
+        } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register, JamArg.Integral)) {
+            // asr <register>, <register>, <immediate> -- Shifts register right by immediate
+            this.context.registers[instr.args[0].value] = this.reg(instr.args[1]) >> instr.args[2].value;
+        } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Integral, JamArg.Register)) {
+            // asr <register>, <immediate>, <register> -- Shifts immediate right by register
+            this.context.registers[instr.args[0].value] = instr.args[1].value >> this.reg(instr.args[2]);
+        }
+    }
+    
+    _.exec_instr_lsr = function(instr) {
+        if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register, JamArg.Register)) {
+            // lsr <register>, <register>, <register> -- Shifts register right by register
+            this.context.registers[instr.args[0].value] = this.reg(instr.args[1]) >>> this.reg(instr.args[2]);
+        } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register, JamArg.Integral)) {
+            // lsr <register>, <register>, <immediate> -- Shifts register right by immediate
+            this.context.registers[instr.args[0].value] = this.reg(instr.args[1]) >>> instr.args[2].value;
+        } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Integral, JamArg.Register)) {
+            // lsr <register>, <immediate>, <register> -- Shifts immediate right by register
+            this.context.registers[instr.args[0].value] = instr.args[1].value >>> this.reg(instr.args[2]);
+        }
+    }
+    
+    _.exec_instr_lsl = function(instr) {
+        if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register, JamArg.Register)) {
+            // lsl <register>, <register>, <register> -- Shifts register left by register
+            this.context.registers[instr.args[0].value] = this.reg(instr.args[1]) << this.reg(instr.args[2]);
+        } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register, JamArg.Integral)) {
+            // lsl <register>, <register>, <immediate> -- Shifts register left by immediate
+            this.context.registers[instr.args[0].value] = this.reg(instr.args[1]) << instr.args[2].value;
+        } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Integral, JamArg.Register)) {
+            // lsl <register>, <immediate>, <register> -- Shifts immediate left by register
+            this.context.registers[instr.args[0].value] = instr.args[1].value << this.reg(instr.args[2]);
+        }
+    }
+    
+    _.exec_instr_mod = function(instr) {
+        if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register, JamArg.Register)) {
+            // mod <register>, <register>, <register> -- register mod register
+            this.context.registers[instr.args[0].value] = this.reg(instr.args[1]) % this.reg(instr.args[2]);
+        } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register, JamArg.Integral)) {
+            // mod <register>, <register>, <immediate> -- register mod immediate
+            this.context.registers[instr.args[0].value] = this.reg(instr.args[1]) % instr.args[2].value;
+        } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Integral, JamArg.Register)) {
+            // mod <register>, <immediate>, <register> -- immediate mod register
+            this.context.registers[instr.args[0].value] = instr.args[1].value % this.reg(instr.args[2]);
         }
     }
     
     _.exec_instr_div = function(instr) {
         if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register, JamArg.Register)) {
-            // add <register>, <register>, <register> -- Divides 2 registers and puts the result in the first register.
+            // div <register>, <register>, <register> -- Divides 2 registers and puts the result in the first register.
             this.context.registers[instr.args[0].value] = this.reg(instr.args[1]) / this.reg(instr.args[2]);
         } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register, JamArg.Integral)) {
-            // add <register>, <register>, <immediate> -- Divides an immediate value and a register and puts the result into the first register.
+            // div <register>, <register>, <immediate> -- Divides an immediate value and a register and puts the result into the first register.
             this.context.registers[instr.args[0].value] = this.reg(instr.args[1]) / instr.args[2].value;
         } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Integral, JamArg.Register)) {
-            // add <register>, <immediate>, <register> -- Divides a register and an immediate value and puts the result into the first register.
+            // div <register>, <immediate>, <register> -- Divides a register and an immediate value and puts the result into the first register.
             this.context.registers[instr.args[0].value] = instr.args[1].value / this.reg(instr.args[2]);
         }
     }
