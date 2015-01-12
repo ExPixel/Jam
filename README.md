@@ -2,7 +2,7 @@
 A small assembly like toy language.
 
 Factorial (Or at least what it should look like):
-```assembly_x86
+```nasm
 ; def & end are just a label, and a jump instruction.
 ; def defines a label that will only be accessible through the call
 ; instruction. The call instruction puts the location of the next instruction
