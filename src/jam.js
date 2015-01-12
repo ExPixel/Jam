@@ -15,6 +15,8 @@ var JamInstruction = {
     SUB: "sub",
     JMP: "jmp",
     CALL: "call",
+    
+    BKPT: "bkpt"
 }
 
 var JamArg = {
@@ -52,6 +54,7 @@ var Jam = (function() {
             keep_source_info: true
         };
         this.user_fn = {}; // user defined functions.
+        this.init_default_fn();
     }
     var _ = Jam.prototype;
     
@@ -84,6 +87,17 @@ var Jam = (function() {
     _.reset = function() {
         this.context = new JamContext(512, 512);
         return this;
+    }
+    
+    _.init_default_fn = function() {
+        this.define_fn("dump", function(context) {
+            console.log("DUMP FROM line %d", context.pc);
+            var amount = context.pop();
+            var i = 0;
+            for(i; i < amount; i++) {
+                console.log("#%d: %d", i, context.pop());
+            }
+        });
     }
     
     return Jam;
@@ -251,15 +265,18 @@ var JamExecutor = (function() {
     var _ = JamExecutor.prototype;
     
     _.execute = function() {
+        while(this.context.pc < this.context.instructions.length) {
+            this.execute_instr();
+        }
+    }
+    
+    _.execute_instr = function() {
         var opc = this.context.pc;
         var instr = this.context.instructions[this.context.pc]; // Fetches the instruction at the program counter.
         this.exec_instr(instr);
         if(opc == this.context.pc) {
             // no branch/jump has occurred.
             this.context.pc++;
-        }
-        if(this.context.pc < this.context.instructions.length) {
-            this.execute();
         }
     }
     
@@ -306,6 +323,9 @@ var JamExecutor = (function() {
             case JamInstruction.CALL:
                 this.exec_instr_call(instr);
                 handled = true;
+                break;
+            case JamInstruction.BKPT:
+                this.exec_instr_bkpt(instr);
                 break;
         }
         if(!handled) {
@@ -472,6 +492,16 @@ var JamExecutor = (function() {
             } else {
                 this.context.pc = fn_loc;
             }
+        }
+    }
+    
+    _.exec_instr_bkpt = function(instr) {
+        if(JamParser.test_args(instr.args, JamArg.Identifier)) {
+            // bkpt <identifier> -- Throws an exception at this breakpoint.
+            console.log(JSON.stringify(this.context.registers, null, '\t'));
+            throw "line #" + instr.line + ": reached breakpoint `" + instr.args[0].text + "`";
+        } else {
+            throw "line #" + instr.line + ": reached breakpoint!";
         }
     }
     
