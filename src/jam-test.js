@@ -8,7 +8,7 @@ jam.define_fn("sqrt", function(context, instr) {
     context.push(result);
 });
 jam.evaluate("test.jam", jam_source);
-console.log("data:");
-console.log(JSON.stringify(jam.context.registers, null, 4));
-console.log("stack");
-console.log(jam.context.stack);
+//console.log("data:");
+//console.log(JSON.stringify(jam.context.registers, null, 4));
+//console.log("stack");
+//console.log(jam.context.stack);

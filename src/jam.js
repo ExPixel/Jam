@@ -110,6 +110,15 @@ var Jam = (function() {
                 console.log("#%d: %d", i, context.pop());
             }
         });
+        
+        this.define_fn("pop_string", function(context) {
+            var c;
+            var str = "";
+            while( (c = context.pop()) != 0 ) {
+                str += String.fromCharCode(c);
+            }
+            console.log(str);
+        });
     }
     
     return Jam;
@@ -314,7 +323,7 @@ var JamExecutor = (function() {
                 this.exec_instr_and(instr);
                 break;
             case JamInstruction.OR:
-                this.exec_instr_OR(instr);
+                this.exec_instr_or(instr);
                 break;
             case JamInstruction.XOR:
                 this.exec_instr_xor(instr);
