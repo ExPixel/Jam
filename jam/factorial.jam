@@ -6,6 +6,7 @@
 ; way of writing 'jmp r14'.
 
 def factorial:			; Defines a function called factorial
+    factorial_fn_start:
 	pop r0-r1			; Pops 2 values from the stack into r0 and r1
 	eq r1, #0			; If r1 == #0, then the next instruction is executed.
 						; the next instruction is skipped if the condition is not true.
@@ -17,7 +18,8 @@ def factorial:			; Defines a function called factorial
 	push r0-r1			; Pushes r1 THEN r0 onto the stack.
 	eq r0, #0
 	jmp end_factorial	; Jumps to the label end_factorial.
-	call factorial		; Calls the factorial function again.
+	; call factorial -- DO NOT DO THIS. You will get an infinite loop because the link register will keep coming back here
+    jmp factorial_fn_start
 	end_factorial:		; A Label.
 	pop r0				; Pops the last value of the stack into r0. (Gets rid of our marker for where we are in the factorial).
 end						; The end of the factorial function.

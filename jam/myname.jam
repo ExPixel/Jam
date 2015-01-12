@@ -1,0 +1,26 @@
+def to_lower:
+    pop r0
+    or r0, r0, 0x20
+    push r0
+end
+
+def to_upper:
+    pop r0
+    bic r0, r0, 0x20
+    push r0
+end
+
+
+push #46  ; .
+push #99  ; c
+call to_upper
+push #32  ; space
+push #72 ; h
+call to_lower
+push #112 ; p
+push #108 ; l
+push #111 ; o
+push #100 ; d
+push #97  ; a
+call to_upper ; A
+call pop_string
