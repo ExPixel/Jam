@@ -6,9 +6,11 @@ Factorial (Or at least what it should look like):
 ; def & end are just a label, and a jump instruction.
 ; def defines a label that will only be accessible through the call
 ; instruction. The call instruction puts the location of the next instruction
-; into register r14 (the link register) and then jump to the function's label.
-; the end instruction, like def is another was of creating a label, is just another
+; into register r14 (the link register) and then jumps to the function's label.
+; the end instruction, like def is another way of creating a label, is just another
 ; way of writing 'jmp r14'.
+; After the parser finds the end instruction, it uses that to create a jump right before
+; the function so that it can skip it when it is not called.
 
 def factorial:			; Defines a function called factorial
 	pop r0-r1			; Pops 2 values from the stack into r0 and r1
