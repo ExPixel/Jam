@@ -5,19 +5,18 @@
     <body>
 
 <pre id="code">
-mov r12, #3
-jmp register_12_is_3
-mov r12, #5
-register_12_is_3:
-mov r0, #32
-mov r1, #12
-add r5, r0, r1
-sub r6, r5, #21
-mul r2, r1, #4
-div r3, r2, 0x2
-push r0-r4
-pop r5
-pop r7-r9
+def m2:
+    pop r0
+    mul r0, r0, #2
+    push r0
+end
+
+push #7
+call m2
+pop r1
+push #25
+call sqrt ; this calls the function we defined.
+pop r0
 </pre>
         
         <script type="text/javascript" src="src/jam.js"></script>

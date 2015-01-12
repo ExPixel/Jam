@@ -10,7 +10,9 @@ Factorial (Or at least what it should look like):
 ; the end instruction, like def is another way of creating a label, is just another
 ; way of writing 'jmp r14'.
 ; After the parser finds the end instruction, it uses that to create a jump right before
-; the function so that it can skip it when it is not called.
+; the function so that it can skip it when it is not called. If def does not have an end to complement
+; it, it just becomes a normal label that can only be used through call that also happens to
+; get a value into r14.
 
 def factorial:			; Defines a function called factorial
 	pop r0-r1			; Pops 2 values from the stack into r0 and r1
