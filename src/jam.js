@@ -60,11 +60,16 @@ var JamArg = {
 }
 
 var Jam = (function() {
-    function Jam() {
-        this.reset();
+    function Jam(memory_size, stack_size) {
+        if(!memory_size) memory_size = 512;
+        if(!stack_size) stack_size = memory_size;
+        
         this.settings = {
-            keep_source_info: true
+            keep_source_info: true,
+            memory_size: memory_size,
+            stack_size: stack_size
         };
+        this.reset();
         this.user_fn = {}; // user defined functions.
         this.init_default_fn();
     }
@@ -97,7 +102,7 @@ var Jam = (function() {
     }
     
     _.reset = function() {
-        this.context = new JamContext(512, 512);
+        this.context = new JamContext(this.settings.memory_size, this.settings.stack_size);
         return this;
     }
     
@@ -118,6 +123,22 @@ var Jam = (function() {
                 str += String.fromCharCode(c);
             }
             console.log(str);
+        });
+        
+        this.define_fn("input", function(context) {
+            var input = prompt("Please enter a number.");
+            if(input) {
+                var val = parseInt(input);
+                if(val) context.push(input);
+                else context.push(0);
+            } else {
+                context.push(0);
+            }
+        });
+        
+        this.define_fn("alert", function(context) {
+            var out = context.pop();
+            alert("value: " + out);
         });
     }
     
