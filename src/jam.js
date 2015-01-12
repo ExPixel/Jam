@@ -140,6 +140,10 @@ var Jam = (function() {
             var out = context.pop();
             alert("value: " + out);
         });
+        
+        this.define_fn("exit", function(context) {
+            throw "exit"; 
+        });
     }
     
     return Jam;
