@@ -36,7 +36,7 @@ mov r0, #9
 push r0
 call factorial
 push #1					; Sets up our first argument for the 'dump' function.
-call dump				; Calls the internal function 'dump' which takes two arguments.
+call dump				; Calls the internal function 'dump'.
 						; The first argument is the number of values that should be
 						; Read from the stack and dumped onto the console.
 ```
