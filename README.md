@@ -3,12 +3,12 @@ A small assembly like toy language.
 
 Factorial (Or at least what it should look like):
 ```nasm
-; def & end are just a label, and a jump instruction.
-; def defines a label that will only be accessible through the call
-; instruction. The call instruction puts the location of the next instruction
-; into register r14 (the link register) and then jump to the function's label.
-; the end instruction, like def is another was of creating a label, is just another
-; way of writing 'jmp r14'.
+; the def instruction creates a function label
+; which can only be jumped to using the call instruction.
+; call first puts the 'address' of the next instruction into the link register
+; and then jumps to the given function label (or instead tries to find a function with the name
+; in javascript). The end instruction just branches to r14. It is still important because it
+; allows the def instruction to skip to the end if it isn't being called.
 
 def factorial:			; Defines a function called factorial
     factorial_fn_start:
