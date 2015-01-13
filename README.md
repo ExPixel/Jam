@@ -11,6 +11,9 @@ Factorial (Or at least what it should look like):
 ; allows the def instruction to skip to the end if it isn't being called.
 
 def factorial:			; Defines a function called factorial
+    pop r0
+    push #1				; This is the value that will be going to r1, so I make sure to clear it here.
+    push r0
     factorial_fn_start:
 	pop r0-r1			; Pops 2 values from the stack into r0 and r1
 	eq r1, #0			; If r1 == #0, then the next instruction is executed.
