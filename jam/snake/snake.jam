@@ -1,0 +1,79 @@
+const screenWidth,	#120
+const screenHeight,	#80
+
+const info,			#0 ; Offset at which game information starts
+const x,			#0 ; The player's x coordinate
+const y,			#4 ; The player's y coordinate
+const xMov,			#8 ; The player's horizontal movement
+const yMov,			#12 ; The player's vertical movement
+const speed,		#16 ; The sped at which the player is moving.
+const score,		#20 ; The player's score.
+const fx,			#24 ; The food's x coordinate
+const fy,			#28 ; The food's y coordinate
+
+const tails			#32 ; This is where the tail information starts.
+const max_tails		#10
+
+push @screenWidth
+push @screenHeight
+call main
+
+def main:
+	pop r0-r1 ; r0 - height, r1 - width
+
+	push r0
+	push r1
+	push @STACK_BASE
+	push #3
+	call dump
+
+	call init
+
+	call game_loop
+end
+
+def init:
+	call init_listeners
+end
+
+def game_loop:
+	mov r12, #0
+	game_loop_start:
+	call graphics_sync
+	add r12, r12, #1
+	call game_tick
+	jmp game_loop_start
+end
+
+def game_tick:
+	call process_keys
+	call update
+	call clear_screen
+	call render_char
+	call poke
+end
+
+def render_char:
+	ldr r0, @x
+	ldr r1, @y
+	push r1
+	push r0
+	push #1
+	call poke
+
+	push @y
+	push @x
+	push r1
+	push r0
+	push #4
+	call dump
+end
+
+def update:
+
+end
+
+def process_keys:
+end
+
+bkpt function_leak

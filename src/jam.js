@@ -5,9 +5,15 @@ function log() {
 }
 
 var JamInstruction = {
+    CONST: "const",
+
     POP: "pop",
     PUSH: "push",
+
     EQ: "eq",
+    LT: "lt",
+    GT: "gt",
+
     MOV: "mov",
     MUL: "mul",
     DIV: "div",
@@ -25,6 +31,9 @@ var JamInstruction = {
     ASR: "asr",
     LSR: "lsr",
     LSL: "lsl",
+    
+    LDR: "ldr",
+    STR: "str",
     
     MOD: "mod",
     
@@ -63,7 +72,6 @@ var Jam = (function() {
     function Jam(memory_size, stack_size) {
         if(!memory_size) memory_size = 512;
         if(!stack_size) stack_size = memory_size;
-        
         this.settings = {
             keep_source_info: true,
             memory_size: memory_size,
@@ -90,6 +98,11 @@ var Jam = (function() {
         log("Execution completed in %dms", total_time);
         return this;
     }
+
+    _.continue_eval = function() {
+        new JamExecutor(this, this.context).execute();
+        return this;
+    }
     
     _.define_fn = function(name, fn) {
         this.user_fn[name] = fn;
@@ -108,7 +121,7 @@ var Jam = (function() {
     
     _.init_default_fn = function() {
         this.define_fn("dump", function(context) {
-            console.log("DUMP FROM line %d", context.pc);
+            console.log("DUMP FROM line %d", context.instructions[context.pc].line);
             var amount = context.pop();
             var i = 0;
             for(i; i < amount; i++) {
@@ -165,7 +178,8 @@ var JamParser = (function() {
         identifier: /^[_a-zA-Z][_a-zA-Z0-9]*$/,
         label: /^([_a-zA-Z][_a-zA-Z0-9]*):$/,
         register: /^r([0-9]+)$/, // group 1 is the register number,
-        register_range: /^r([0-9]+)\s*-\s*r([0-9]+)$/
+        register_range: /^r([0-9]+)\s*-\s*r([0-9]+)$/,
+        val: /^@([_a-zA-Z][_a-zA-Z0-9]*)$/
     };
     
     _s.test_args = function() {
@@ -173,6 +187,7 @@ var JamParser = (function() {
         var args = arguments[0];
         var i = 1;
         for(i; i < arguments.length; i++) {
+            if(arguments[i] === null) continue; // Skip nulls :P
             if( !(args[i-1] instanceof arguments[i]) ) return false;
         }
         return true;
@@ -238,6 +253,9 @@ var JamParser = (function() {
                 this.def_skip_instr = null;
             }
             instr_added = true;
+        } else if(instr === "const") {
+            this.define_constant(args, line_number);
+            instr_added = true;
         } else {
             var key;
             for(key in JamInstruction) {
@@ -252,6 +270,14 @@ var JamParser = (function() {
         
         if(!instr_added) {
             log("line #%d: Undefined instruction `%s` reached. ", line_number, instr, args);
+        }
+    }
+
+    _.define_constant = function(args, line_number) {
+        if(JamParser.test_args(args, JamArg.Identifier, null)) {
+            if(args[1]) {
+                this.context.define_constant(args[0].text, args[1]);
+            }
         }
     }
     
@@ -290,6 +316,8 @@ var JamParser = (function() {
             return new JamArg.RegisterRange(parseInt(matches[1]), parseInt(matches[2]));
         } else if(matches = JamParser.exprs.register.exec(arg)) {
             return new JamArg.Register(parseInt(matches[1]));
+        } else if(matches = JamParser.exprs.val.exec(arg)) {
+            return this.context.get_constant(matches[1]);
         } else if(matches = JamParser.exprs.identifier.exec(arg)) {
             return new JamArg.Identifier(matches[0]);
         } else if(matches = JamParser.exprs.dec.exec(arg)) {
@@ -311,8 +339,17 @@ var JamExecutor = (function() {
     var _ = JamExecutor.prototype;
     
     _.execute = function() {
+        var ifn = null;
         while(this.context.pc < this.context.instructions.length) {
             this.execute_instr();
+            if(this.context.interrupt) {
+                ifn = this.context.interrupt;
+                this.context.interrupt = false;
+                break;
+            }
+        }
+        if(ifn) {
+            ifn(this.context);
         }
     }
     
@@ -327,7 +364,7 @@ var JamExecutor = (function() {
     }
     
     _.exec_instr = function(instr) {
-//        log("#%d: %s", this.context.pc, JSON.stringify(instr));
+       // log("#%d: %s", this.context.pc, JSON.stringify(instr));
         switch(instr.name) {
             case JamInstruction.MOV:
                 this.exec_instr_mov(instr);
@@ -383,15 +420,53 @@ var JamExecutor = (function() {
             case JamInstruction.EQ:
                 this.exec_instr_eq(instr);
                 break;
+            case JamInstruction.LT:
+                this.exec_instr_lt(instr);
+                break;
+            case JamInstruction.GT:
+                this.exec_instr_gt(instr);
+                break;
             case JamInstruction.CALL:
                 this.exec_instr_call(instr);
                 break;
             case JamInstruction.BKPT:
                 this.exec_instr_bkpt(instr);
                 break;
+            case JamInstruction.LDR:
+                this.exec_instr_ldr(instr);
+                break;
+            case JamInstruction.STR:
+                this.exec_instr_str(instr);
+                break;
             default:
                 log("Unhandled but valid instruction ", instr);
                 break;
+        }
+    }
+    
+    _.exec_instr_ldr = function(instr) {
+        if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register)) {
+            // ldr <register>, <register> -- Loads a value from [register] into another register
+            this.context.registers[instr.args[0].value] = this.context.memory.read32(this.reg(instr.args[1]));
+        } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Integral)) {
+            // ldr <register>, <immediate> -- Loads a value from [immediate] into a register.
+            this.context.registers[instr.args[0].value] = this.context.memory.read32(instr.args[1].value);
+        }
+    }
+    
+    _.exec_instr_str = function(instr) {
+        if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register)) {
+            // str <a:register>, <b:register> -- [a] = b
+            this.context.write32( this.reg(instr.args[0]), this.reg(instr.args[1]) );
+        } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Integral)) {
+            // str <a:register>, <b:immediate> -- [a] = b
+            this.context.write32( this.reg(instr.args[0]), instr.args[1].value );
+        } else if(JamParser.test_args(instr.args, JamArg.Integral, JamArg.Register)) {
+            // str <a:immediate>, <b:register> -- [a] = b
+            this.context.write32( instr.args[0].value, this.reg(instr.args[1]) );
+        } else if(JamParser.test_args(instr.args, JamArg.Integral, JamArg.Integral)) {
+            // str <a:immediate>, <b:immediate> -- [a] = b
+            this.context.write32( instr.args[0].value, instr.args[1].value );
         }
     }
     
@@ -621,8 +696,9 @@ var JamExecutor = (function() {
         } else if(JamParser.test_args(instr.args, JamArg.Register)) {
             // jmp <register> -- Jumps to the instruction pointed to by the register.
             this.context.pc = this.reg(instr.args[0]);
-//            console.log(instr, this.jam.context);
-//            throw "fuck"
+            if(instr.args[0].value == 14) {
+                this.context.lr = this.context.fn_stack.pop();
+            }
         } else if (JamParser.test_args(instr.args, JamArg.Identifier)) {
             // jmp <identifier> -- Jumps to a label.
             var label_loc = this.context.labels[instr.args[0].text];
@@ -636,18 +712,56 @@ var JamExecutor = (function() {
     
     _.exec_instr_eq = function(instr) {
         if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register)) {
-            // eq <register>, <register> -- Jumps over the next instruction is args[0] != args[1]
+            // eq <register>, <register> -- Jumps over the next instruction if args[0] != args[1]
             if(this.reg(instr.args[0]) != this.reg(instr.args[1].value)) {
                 this.context.pc += 2; // Skips the next instruction.
             }
         } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Integral)) {
-            // eq <register>, <immediate> -- Jumps over the next instruction is args[0] != args[1]
+            // eq <register>, <immediate> -- Jumps over the next instruction if args[0] != args[1]
             if(this.reg(instr.args[0]) != instr.args[1].value) {
                 this.context.pc += 2; // Skips the next instruction.
             }
         } else if(JamParser.test_args(instr.args, JamArg.Integral, JamArg.Register)) {
-            // eq <immediate>, <register> -- Jumps over the next instruction is args[0] != args[1]
+            // eq <immediate>, <register> -- Jumps over the next instruction if args[0] != args[1]
             if(instr.args[0].value != this.reg(instr.args[1])) {
+                this.context.pc += 2; // Skips the next instruction.
+            }
+        }
+    }
+    
+    _.exec_instr_lt = function(instr) {
+        if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register)) {
+            // eq <register>, <register> -- Jumps over the next instruction if args[0] >= args[1]
+            if(this.reg(instr.args[0]) >= this.reg(instr.args[1].value)) {
+                this.context.pc += 2; // Skips the next instruction.
+            }
+        } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Integral)) {
+            // eq <register>, <immediate> -- Jumps over the next instruction if args[0] >= args[1]
+            if(this.reg(instr.args[0]) >= instr.args[1].value) {
+                this.context.pc += 2; // Skips the next instruction.
+            }
+        } else if(JamParser.test_args(instr.args, JamArg.Integral, JamArg.Register)) {
+            // eq <immediate>, <register> -- Jumps over the next instruction if args[0] >= args[1]
+            if(instr.args[0].value >= this.reg(instr.args[1])) {
+                this.context.pc += 2; // Skips the next instruction.
+            }
+        }
+    }
+    
+    _.exec_instr_gt = function(instr) {
+        if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Register)) {
+            // eq <register>, <register> -- Jumps over the next instruction if args[0] <= args[1]
+            if(this.reg(instr.args[0]) <= this.reg(instr.args[1].value)) {
+                this.context.pc += 2; // Skips the next instruction.
+            }
+        } else if(JamParser.test_args(instr.args, JamArg.Register, JamArg.Integral)) {
+            // eq <register>, <immediate> -- Jumps over the next instruction if args[0] <= args[1]
+            if(this.reg(instr.args[0]) <= instr.args[1].value) {
+                this.context.pc += 2; // Skips the next instruction.
+            }
+        } else if(JamParser.test_args(instr.args, JamArg.Integral, JamArg.Register)) {
+            // eq <immediate>, <register> -- Jumps over the next instruction if args[0] <= args[1]
+            if(instr.args[0].value <= this.reg(instr.args[1])) {
                 this.context.pc += 2; // Skips the next instruction.
             }
         }
@@ -656,13 +770,16 @@ var JamExecutor = (function() {
     _.exec_instr_call = function(instr) {
         if(JamParser.test_args(instr.args, JamArg.Identifier)) {
             // call <identifier>
+            this.context.fn_stack.push(this.context.lr);
             this.context.lr = this.context.pc + 1; // Sets the link register to the next instruction.
             var ident = instr.args[0].text;
             var fn_loc = this.context.function_labels[ident];
             if(fn_loc === undefined) {
                 if(this.jam.user_fn[ident]) {
-                    this.jam.user_fn[ident](this.context, instr);
+                    this.jam.user_fn[ident](this.context, instr, this.jam);
+                    this.context.lr = this.context.fn_stack.pop();
                 } else {
+                    this.context.lr = this.context.fn_stack.pop();
                     throw "line #" + instr.line + ": undefined function `" + ident + "`";
                 }
             } else {
@@ -691,14 +808,24 @@ var JamContext = (function() {
         for(var i = 0; i < this.registers.length; i++) { this.registers[i] = 0; }
         this.memory_size = memory_size;
         this.stack_size = stack_size;
+
+        var stack_base = this.memory_size - 4;
+        var stack_top = stack_base - stack_size;
+        console.log("wtf", stack_base);
+
         this.memory = new JamMemory(this.memory_size);
-        this.stack = new JamMemory(this.memory, 0, this.stack_size);
+        this.stack = new JamMemory(this.memory, stack_top, this.stack_size);
         this.labels = {};
         this.function_labels = {};
         this.instructions = [];
+        this.constants = {};
+        this.interrupt = false;
+        this.fn_stack = []; // A stack of function locations :P
         define_register_getters(this);
         
-        this.sp = this.stack_size - 4;
+        this.sp = stack_base;
+
+        this.define_constant("STACK_BASE", new JamArg.Integral(stack_base));
     }
     
     var _ = JamContext.prototype;
@@ -762,7 +889,21 @@ var JamContext = (function() {
             context.registers[16] = value;
         });
     }
+
+    _.define_constant = function(identifier, value) {
+        this.constants[identifier] = value;
+        // log("Defined constant `%s` as ", identifier, value);
+    }
     
+    _.get_constant = function(identifier) {
+        var val = this.constants[identifier];
+        if(typeof val === "undefined") {
+            throw "Undefined constant " + identifier;
+        } else {
+            return val;
+        }
+    }
+
     _.get_current_instruction_pos = function() {
         return this.instructions.length;
     }
